@@ -7,9 +7,15 @@ public class Rocket : MonoBehaviour
     // config params
     [SerializeField] float mainThrust = 800f;
     [SerializeField] float rcsThrust = 100f;
+    [SerializeField] float levelLoadDelay = 2f;
+
     [SerializeField] AudioClip mainEngine;
     [SerializeField] AudioClip death;
     [SerializeField] AudioClip finish;
+
+    [SerializeField] ParticleSystem mainEngineParticles;
+    [SerializeField] ParticleSystem deathParticles;
+    [SerializeField] ParticleSystem finishParticles;
 
     enum State {Alive, Dying, Transcending};
     State state = State.Alive;
@@ -63,16 +69,20 @@ public class Rocket : MonoBehaviour
     {
         state = State.Transcending;
         audioSource.Stop();
+        mainEngineParticles.Stop();
         audioSource.PlayOneShot(finish);
-        Invoke("LoadNextScene", 1f);
+        finishParticles.Play();
+        Invoke("LoadNextScene", levelLoadDelay);
     }
 
     private void BeginDeathSequence()
     {
         state = State.Dying;
         audioSource.Stop();
+        mainEngineParticles.Stop();
         audioSource.PlayOneShot(death);
-        Invoke("LoadStartScene", 1f);
+        deathParticles.Play();
+        Invoke("LoadStartScene", levelLoadDelay);
     }
 
     private void LoadStartScene()
@@ -97,6 +107,7 @@ public class Rocket : MonoBehaviour
         else
         {
             audioSource.Stop();
+            mainEngineParticles.Stop();
         }
     }
 
@@ -104,12 +115,14 @@ public class Rocket : MonoBehaviour
     {
         float thrustThisFrame = mainThrust * Time.deltaTime;
 
+        // frame rate independent because using Time.deltaTime
         rigidBody.AddRelativeForce(Vector3.up * thrustThisFrame);
 
         if (!audioSource.isPlaying)
         {
             audioSource.PlayOneShot(mainEngine);
         }
+        mainEngineParticles.Play();
     }
 
     private void RespondToRotateInput()
