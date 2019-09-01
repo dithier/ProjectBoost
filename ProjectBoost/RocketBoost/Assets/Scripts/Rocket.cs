@@ -17,14 +17,14 @@ public class Rocket : MonoBehaviour
     [SerializeField] ParticleSystem deathParticles;
     [SerializeField] ParticleSystem finishParticles;
 
-    enum State {Alive, Dying, Transcending};
-    State state = State.Alive;
+    bool isTranscending = false;
 
     // cached references
     Rigidbody rigidBody;
     AudioSource audioSource;
     int currentScene;
     int nextScene;
+    bool colliderEnabled = true;
 
     // Start is called before the first frame update
     void Start()
@@ -32,24 +32,44 @@ public class Rocket : MonoBehaviour
         rigidBody = GetComponent<Rigidbody>();
         audioSource = GetComponent<AudioSource>();
         currentScene = SceneManager.GetActiveScene().buildIndex;
-        nextScene = currentScene + 1 > SceneManager.sceneCount ? currentScene : currentScene + 1;
+        nextScene = (currentScene + 1) % SceneManager.sceneCountInBuildSettings;
     }
 
     // Update is called once per frame
     void Update()
     {
-        if (state == State.Alive)
+        if (!isTranscending)
         {
             RespondToThrustInput();
             RespondToRotateInput();
         }
+
+        if (Debug.isDebugBuild)
+        {
+            RespondToDebugKeys();
+        }
         
+    }
+
+    private void RespondToDebugKeys()
+    {
+        // debuggin l key allows you to go to next level
+        if (Input.GetKeyDown(KeyCode.L))
+        {
+            LoadNextScene();
+        }
+
+        // c key toggles whether collider is enabled or not
+        if (Input.GetKeyDown(KeyCode.C))
+        {
+            colliderEnabled = !colliderEnabled;
+        }
     }
 
     private void OnCollisionEnter(Collision collision)
     {
         // ignore collisions if not alive
-        if (state != State.Alive) {return;}
+        if (isTranscending || !colliderEnabled) {return;}
 
         switch (collision.gameObject.tag)
         {
@@ -67,7 +87,7 @@ public class Rocket : MonoBehaviour
 
     private void BeginSuccessSequence()
     {
-        state = State.Transcending;
+        isTranscending = true;
         audioSource.Stop();
         mainEngineParticles.Stop();
         audioSource.PlayOneShot(finish);
@@ -77,7 +97,7 @@ public class Rocket : MonoBehaviour
 
     private void BeginDeathSequence()
     {
-        state = State.Dying;
+        isTranscending = true;
         audioSource.Stop();
         mainEngineParticles.Stop();
         audioSource.PlayOneShot(death);
@@ -106,9 +126,14 @@ public class Rocket : MonoBehaviour
         }
         else
         {
-            audioSource.Stop();
-            mainEngineParticles.Stop();
+            StopApplyingThrust();
         }
+    }
+
+    private void StopApplyingThrust()
+    {
+        audioSource.Stop();
+        mainEngineParticles.Stop();
     }
 
     private void ApplyThrust()
@@ -127,20 +152,26 @@ public class Rocket : MonoBehaviour
 
     private void RespondToRotateInput()
     {
-        // take manual control of rotation
-        rigidBody.freezeRotation = true;
         float rotationThisFrame = rcsThrust * Time.deltaTime;
 
         if (Input.GetKey(KeyCode.A))
         {
-            transform.Rotate(Vector3.forward * rotationThisFrame);
-        } else if (Input.GetKey(KeyCode.D))
+            RotateManually(rotationThisFrame);
+        }
+        else if (Input.GetKey(KeyCode.D))
         {
-            transform.Rotate(Vector3.back * rotationThisFrame);
+            RotateManually(-rotationThisFrame);
         }
 
+        
+    }
+
+    private void RotateManually(float rotationThisFrame)
+    {
+        // take manual control of rotation
+        rigidBody.freezeRotation = true;
+        transform.Rotate(Vector3.forward * rotationThisFrame);
         // resume physics control of rotation
         rigidBody.freezeRotation = true;
     }
-
 }
